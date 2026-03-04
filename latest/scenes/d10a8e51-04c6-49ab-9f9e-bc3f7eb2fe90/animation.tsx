@@ -1,6 +1,7 @@
 import React from "react";
 import {
   AbsoluteFill,
+  Img,
   interpolate,
   spring,
   useCurrentFrame,
@@ -326,6 +327,71 @@ const SendButton = () => (
   </div>
 );
 
+// --- Animation layer using the attached label image ---
+
+const FloatingLabel: React.FC<{
+  src: string;
+  inFrame: number;
+  x: number;
+  y: number;
+  scale?: number;
+}> = ({ src, inFrame, x, y, scale = 1 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+
+  const t = Math.max(0, frame - inFrame);
+
+  const pop = spring({
+    frame: t,
+    fps,
+    config: {
+      damping: 14,
+      stiffness: 240,
+      mass: 0.8,
+    },
+  });
+
+  const drift = interpolate(t, [0, 120], [0, -10], {
+    extrapolateRight: "clamp",
+  });
+
+  const bob = Math.sin((t / fps) * Math.PI * 2 * 0.55) * 3; // ~0.55Hz
+
+  const opacity = interpolate(t, [0, 8], [0, 1], {
+    extrapolateRight: "clamp",
+  });
+
+  const s = (0.86 + 0.14 * pop) * scale;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: x,
+        top: y,
+        transform: `translateY(${drift + bob}px) scale(${s})`,
+        transformOrigin: "left top",
+        opacity,
+        filter:
+          "drop-shadow(0px 14px 24px rgba(0,0,0,0.14)) drop-shadow(0px 2px 0px rgba(0,0,0,0.06))",
+        willChange: "transform, opacity",
+        pointerEvents: "none",
+      }}
+    >
+      <Img
+        src={src}
+        style={{
+          display: "block",
+          width: 310,
+          height: "auto",
+        }}
+      />
+    </div>
+  );
+};
+
+// Note: AttachedImages is available at runtime (per user request).
+declare const AttachedImages: string[];
 
 export const HelpPromptScreenshot: React.FC = () => {
   const frame = useCurrentFrame();
@@ -483,6 +549,14 @@ export const HelpPromptScreenshot: React.FC = () => {
         </div>
       </div>
 
+      {/* Animated label overlay (from attached image) */}
+      <FloatingLabel
+        src={AttachedImages[0]}
+        inFrame={22}
+        x={1180}
+        y={210}
+        scale={1}
+      />
     </AbsoluteFill>
   );
 };
